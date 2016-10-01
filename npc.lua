@@ -1,24 +1,17 @@
 -- Helpers
 
-local GRAVITY = 9.81
-local GRAVITY_VECTOR = vector(0, -GRAVITY, 0)
+local moves = custom_npc.moves
+local G = custom_npc.GRAVITY
+local G_VEC = custom_npc.GRAVITY_VECTOR
 
 local function get_name(object)
 	if not object then
 		return "<nothing>"
 	end
-	if object:is_player() then
-		return object:get_player_name()
-	end
 	local ent = object:get_luaentity()
-	return ent and ent.name or "<something>"
-end
-
-local function get_nameref(object)
-	if not object then
-		return "<nothing> <nowhere>"
-	end
-	return string.format("%s at %s", get_name(object), minetest.pos_to_string(object:getpos()))
+	local name = object:is_player() and object:get_player_name() or ent and ent.info and ent.info.name or ""
+	local category = object:is_player() and ":player" or ent and ent.name or ":unknown"
+	return string.format("%s (%s)", name, category)
 end
 
 local function speak(pos, loudness, message)
@@ -79,7 +72,7 @@ function npc.initialize(self, params)
 	self.object:set_properties({
 		weight = self.phys.mass
 	})
-	self:move_stop()
+	moves.stop(self)
 end
 
 function npc.restore(self, data)
@@ -99,45 +92,12 @@ function npc.hibernate(self)
 	}
 end
 
-function npc.move_stop(self)
-	self.move = {
-		mode = "stop",
-	}
+function npc.get_feet_pos(self)
+	return self.object:getpos() - self.origin_offset
 end
 
-function npc.move_walk(self, to, eps)
-	self.move = {
-		mode = "walk",
-		target = to.getpos and to:getpos() or vector(to),
-		eps = eps or 1.5,
-	}
-end
-
-function npc.move_jump(self)
-	local vel = self.object:getvelocity()
-	if math.abs(vel.y) > 0.1 then
-		return false
-	end
-	local feet_pos = self.object:getpos() - self.origin_offset
-	local node_under_pos = vector.round(feet_pos - vector(0.0, 0.1, 0.0))
-	local node_under = minetest.registered_nodes[minetest.get_node(node_under_pos).name]
-	if not node_under.walkable then
-		return false
-	end
-	if node_under.groups.disable_jump then
-		return false
-	end
-	local vel = vector(self.object:getvelocity())
--- h = v^2/2 g
--- v = sqrt(2 g h)
-	self.object:setvelocity(vector(vel.x, math.sqrt(2 * GRAVITY * self.phys.jump_height), vel.z))
-	return true
-end
-
-function npc.move_climb(self, to)
-end
-
-function npc.move_on_step(self, dtime)
+function npc.get_jump_height(self)
+	return self.phys.jump_height
 end
 
 function npc.on_rightclick(self, clicker)
@@ -156,7 +116,6 @@ function npc.on_step(self, dtime)
 -- self.follow: ObjectRef
 		local hispos = vector(self.follow:getpos())
 		if not hispos then
-			minetest.log("action", string.format("Lost target"))
 			self.follow = nil
 			return
 		end
@@ -164,14 +123,12 @@ function npc.on_step(self, dtime)
 		local d = dir:length()
 		local v = self.object:getvelocity()
 		if d < 3 then
-			minetest.log("action", string.format("custom_npc: %s: Target reached: %s", self.info.name, get_nameref(self.follow)))
 			local player = self.follow:is_player() and self.follow:get_player_name()
 			speak(mypos, 8, string.format("[%s]: Got you %s!", self.info.name, get_name(self.follow)))
 			self.follow:punch(self.object, 1.0, minetest.registered_items["default:sword_steel"].tool_capabilities, dir / d)
 			self.object:setvelocity({x=0, y=v.y, z=0})
 			self.follow = nil
 			self.sleep = 2
-			minetest.log("action", string.format("Sleeping for %d seconds", self.sleep))
 		else
 			dir = (2 / d) * dir
 			self.object:setvelocity(vector(dir.x, v.y, dir.z))
@@ -185,8 +142,6 @@ function npc.on_step(self, dtime)
 		local objs = minetest.get_objects_inside_radius(mypos, 16)
 		local targets = {}
 		for _,obj in ipairs(objs) do
--- 			local ent = obj:get_luaentity()
--- 			if obj:is_player() or (ent and ent.name ~= "custom_npc:npc") then
 			if obj ~= self.object then
 				table.insert(targets, obj)
 			end
@@ -194,19 +149,16 @@ function npc.on_step(self, dtime)
 		local i = math.random(#targets)
 		self.follow = targets[i]
 		if self.follow then
-			minetest.log("action", string.format("New target: %s", get_nameref(self.follow)))
 			local player = self.follow:is_player() and self.follow:get_player_name()
 			if player and player ~= "" then
 				minetest.chat_send_player(player, string.format("(%s): I see you }:->", self.info.name))
 			end
-		else
-			minetest.log("action", string.format("Can’t find new target (%d options)", #targets))
 		end
 	end
 	if math.random() < 0.1 * dtime then
-		self:move_jump()
+		self.move:jump()
 	end
-	self.object:setacceleration(GRAVITY_VECTOR)
+	self.object:setacceleration(G_VEC)
 end
 
 custom_npc.npc = npc
