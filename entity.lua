@@ -3,24 +3,22 @@ local npc = custom_npc.npc
 local npc_entity = {
 	initial_properties = {
 		hp_max = 20,
-		armor_groups = {punch_operable=1},
 		physical = true,
 		weight = 10,
 		collisionbox = {-0.45,-0.90,-0.45, 0.45,0.90,0.45},
-		visual = "cube",
-		visual_size = {x=0.75, y=1.80, z=0.50},
+		visual = "mesh",
+		mesh = "3d_armor_18.b3d",
 		textures = {
-			"default_cobble.png",
-			"default_stone.png",
-			"default_bronze_block.png",
-			"default_bronze_block.png",
-			"default_gold_block.png",
-			"default_bronze_block.png",
+			"multiskin_18.png",
+			"multiskin_trans.png",
+			"multiskin_trans.png",
+			"multiskin_trans.png",
 		},
 		is_visible = true,
 		makes_footstep_sound = true,
 	},
 	initialized = false,
+	origin_offset = vector(0.0, 0.90, 0.0),
 }
 
 setmetatable(npc_entity, {

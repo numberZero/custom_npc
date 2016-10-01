@@ -1,5 +1,8 @@
 -- Helpers
 
+local GRAVITY = 9.81
+local GRAVITY_VECTOR = vector(0, -GRAVITY, 0)
+
 local function get_name(object)
 	if not object then
 		return "<nothing>"
@@ -69,13 +72,24 @@ function npc.initialize(self, params)
 		owner = params.owner and tostring(params.owner) or nil,
 		name = params.name and tostring(params.name) or string.format("NPC_%s", hexrandom(4)),
 	}
+	self.phys = {
+		mass = params.mass or 20,
+		jump_height = params.jump_height or 1.125,
+	}
+	self.object:set_properties({
+		weight = self.phys.mass
+	})
+	self:move_stop()
 end
 
 function npc.restore(self, data)
+	self:initialize(data)
+--[[
 	self.info = {
 		owner = data.owner,
 		name = data.name,
 	}
+]]
 end
 
 function npc.hibernate(self)
@@ -83,6 +97,47 @@ function npc.hibernate(self)
 		owner = self.info.owner,
 		name = self.info.name
 	}
+end
+
+function npc.move_stop(self)
+	self.move = {
+		mode = "stop",
+	}
+end
+
+function npc.move_walk(self, to, eps)
+	self.move = {
+		mode = "walk",
+		target = to.getpos and to:getpos() or vector(to),
+		eps = eps or 1.5,
+	}
+end
+
+function npc.move_jump(self)
+	local vel = self.object:getvelocity()
+	if math.abs(vel.y) > 0.1 then
+		return false
+	end
+	local feet_pos = self.object:getpos() - self.origin_offset
+	local node_under_pos = vector.round(feet_pos - vector(0.0, 0.1, 0.0))
+	local node_under = minetest.registered_nodes[minetest.get_node(node_under_pos).name]
+	if not node_under.walkable then
+		return false
+	end
+	if node_under.groups.disable_jump then
+		return false
+	end
+	local vel = vector(self.object:getvelocity())
+-- h = v^2/2 g
+-- v = sqrt(2 g h)
+	self.object:setvelocity(vector(vel.x, math.sqrt(2 * GRAVITY * self.phys.jump_height), vel.z))
+	return true
+end
+
+function npc.move_climb(self, to)
+end
+
+function npc.move_on_step(self, dtime)
 end
 
 function npc.on_rightclick(self, clicker)
@@ -148,7 +203,10 @@ function npc.on_step(self, dtime)
 			minetest.log("action", string.format("Can’t find new target (%d options)", #targets))
 		end
 	end
-	self.object:setacceleration({x=0, y=-10, z=0})
+	if math.random() < 0.1 * dtime then
+		self:move_jump()
+	end
+	self.object:setacceleration(GRAVITY_VECTOR)
 end
 
 custom_npc.npc = npc
