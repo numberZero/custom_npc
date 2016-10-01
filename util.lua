@@ -15,8 +15,11 @@ function custom_npc.class(def)
 	local function new(self, ...)
 		local instance = {}
 		setmetatable(instance, meta)
-		assert(self._constructor(instance, ...) == nil, "Constructor returned something")
-		return instance
+		result = self._constructor(instance, ...)
+		if result == nil then
+			return instance
+		end
+		return result
 	end
 	setmetatable(def, {
 		__index = def._parent,

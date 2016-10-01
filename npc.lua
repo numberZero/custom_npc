@@ -72,6 +72,7 @@ function npc.initialize(self, params)
 	self.object:set_properties({
 		weight = self.phys.mass
 	})
+	self.sleep = 1
 	moves.stop(self)
 end
 
@@ -100,6 +101,13 @@ function npc.get_jump_height(self)
 	return self.phys.jump_height
 end
 
+function npc.on_reach_enemy(self, position, distance)
+	local player = self.follow:is_player() and self.follow:get_player_name()
+	speak(self.object:getpos(), 8, string.format("[%s]: Got you %s!", self.info.name, get_name(self.follow)))
+	self.follow:punch(self.object, 1.0, minetest.registered_items["default:sword_steel"].tool_capabilities)
+	self.sleep = 2
+end
+
 function npc.on_rightclick(self, clicker)
 	local player = clicker:get_player_name()
 	if player and player ~= "" then
@@ -108,37 +116,20 @@ function npc.on_rightclick(self, clicker)
 end
 
 function npc.on_step(self, dtime)
--- self: LuaEntity
--- dtime: number
+	self.object:setacceleration(G_VEC)
+	if self.sleep > 0 then
+		self.sleep = self.sleep - dtime
+		return
+	end
 	local mypos = vector(self.object:getpos())
 	if self.follow then
--- self.object: ObjectRef
--- self.follow: ObjectRef
 		local hispos = vector(self.follow:getpos())
 		if not hispos then
 			self.follow = nil
 			return
 		end
-		local dir = hispos - mypos
-		local d = dir:length()
-		local v = self.object:getvelocity()
-		if d < 3 then
-			local player = self.follow:is_player() and self.follow:get_player_name()
-			speak(mypos, 8, string.format("[%s]: Got you %s!", self.info.name, get_name(self.follow)))
-			self.follow:punch(self.object, 1.0, minetest.registered_items["default:sword_steel"].tool_capabilities, dir / d)
-			self.object:setvelocity({x=0, y=v.y, z=0})
-			self.follow = nil
-			self.sleep = 2
-		else
-			dir = (2 / d) * dir
-			self.object:setvelocity(vector(dir.x, v.y, dir.z))
-			self.object:setyaw(vector.yaw(dir))
-		end
+		moves.walk(self, hispos, 3.0, self.on_reach_enemy)
 	else
-		if self.sleep and self.sleep > 0 then
-			self.sleep = self.sleep - dtime
-			return
-		end
 		local objs = minetest.get_objects_inside_radius(mypos, 16)
 		local targets = {}
 		for _,obj in ipairs(objs) do
@@ -155,10 +146,10 @@ function npc.on_step(self, dtime)
 			end
 		end
 	end
+	self.move:on_step(dtime)
 	if math.random() < 0.1 * dtime then
 		self.move:jump()
 	end
-	self.object:setacceleration(G_VEC)
 end
 
 custom_npc.npc = npc
