@@ -6,9 +6,9 @@ local function get_name(object)
 	end
 	if object:is_player() then
 		return object:get_player_name()
-	else
-		return object:get_luaentity().name
 	end
+	local ent = object:get_luaentity()
+	return ent and ent.name or "<something>"
 end
 
 local function get_nameref(object)
@@ -53,12 +53,14 @@ local npc = {
 }
 
 setmetatable(npc, {
-	__call = function(self, pos, ...) -- constructor
+	__call = function(npc, pos, ...) -- constructor
 		local obj = minetest.add_entity(pos, npc.name)
 		if not obj then
 			return nil
 		end
-		npc.initialize(obj:get_luaentity(), ...)
+		local self = obj:get_luaentity()
+		npc.initialize(self, ...)
+		self.initialized = true
 	end,
 })
 
@@ -67,7 +69,6 @@ function npc.initialize(self, params)
 		owner = params.owner and tostring(params.owner) or nil,
 		name = params.name and tostring(params.name) or string.format("NPC_%s", hexrandom(4)),
 	}
-	self.initialized = true
 end
 
 function npc.restore(self, data)
@@ -75,14 +76,9 @@ function npc.restore(self, data)
 		owner = data.owner,
 		name = data.name,
 	}
-	self.initialized = true
 end
 
 function npc.hibernate(self)
-	if not self.initialized then
-		minetest.log("warning", "Hibernating non-initialized entity")
-		return nil
-	end
 	return {
 		owner = self.info.owner,
 		name = self.info.name
@@ -134,8 +130,9 @@ function npc.on_step(self, dtime)
 		local objs = minetest.get_objects_inside_radius(mypos, 16)
 		local targets = {}
 		for _,obj in ipairs(objs) do
-			local ent = obj:get_luaentity()
-			if obj:is_player() or (ent and ent.name ~= "custom_npc:npc") then
+-- 			local ent = obj:get_luaentity()
+-- 			if obj:is_player() or (ent and ent.name ~= "custom_npc:npc") then
+			if obj ~= self.object then
 				table.insert(targets, obj)
 			end
 		end

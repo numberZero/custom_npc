@@ -20,6 +20,7 @@ local npc_entity = {
 		is_visible = true,
 		makes_footstep_sound = true,
 	},
+	initialized = false,
 }
 
 setmetatable(npc_entity, {
@@ -27,26 +28,32 @@ setmetatable(npc_entity, {
 })
 
 function npc_entity.on_activate(self, staticdata)
-	minetest.log("info", "Activating entity. Static data: “"..staticdata.."”")
+	minetest.log("info", "Activating entity. Static data: <<"..staticdata..">>")
 	if staticdata ~= "" then
 		local data = minetest.deserialize(staticdata)
 		if not data then
-			minetest.log("error", "Can’t restore entity properly. Static data: “"..staticdata.."”")
+			minetest.log("error", "Can't restore entity properly; removing. Static data: <<"..staticdata..">>")
 			self.object:remove()
 			return false
 		end
 		self:restore(data)
+		self.initialized = true
 	end
 end
 
 function npc_entity.get_staticdata(self)
+	if not self.initialized then
+		minetest.log("warning", "Serializing non-initialized entity")
+		return ""
+	end
 	return minetest.serialize(self:hibernate())
 end
 
 function npc_entity.on_step(self, dtime)
 	if not self.initialized then
-		minetest.log("warning", "Entity was not properly initialized; default-initializing")
-		self:initialize()
+		minetest.log("error", "Entity was not properly initialized; removing")
+		self.object:remove()
+		return
 	end
 	npc.on_step(self, dtime)
 end
