@@ -1,4 +1,6 @@
 local npc = custom_npc.npc
+local G = custom_npc.GRAVITY
+local G_VEC = custom_npc.GRAVITY_VECTOR
 
 local npc_entity = {
 	initial_properties = {
@@ -53,6 +55,7 @@ function npc_entity.on_step(self, dtime)
 		self.object:remove()
 		return
 	end
+	self.object:setacceleration(G_VEC)
 	npc.on_step(self, dtime)
 end
 

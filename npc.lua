@@ -101,6 +101,53 @@ function npc.get_jump_height(self)
 	return self.phys.jump_height
 end
 
+function npc.find_target(self)
+	local mypos = vector(self.object:getpos())
+	local objs = minetest.get_objects_inside_radius(mypos, 16)
+	local targets = {}
+	for _,obj in ipairs(objs) do
+		if obj ~= self.object then
+			if not self.info.owner or obj:get_player_name() ~= self.info.owner then
+				table.insert(targets, obj)
+			end
+		end
+	end
+	local i = math.random(#targets)
+	local target = targets[i]
+	if target then
+		local player = target:is_player() and target:get_player_name()
+		if player and player ~= "" then
+			minetest.chat_send_player(player, string.format("(%s): I see you }:->", self.info.name))
+		end
+	end
+	return target
+end
+
+function npc.step(self, dtime)
+	if self.sleep > 0 then
+		self.sleep = self.sleep - dtime
+		return
+	end
+	if not self.follow then
+		self.follow = self:find_target()
+		return
+	end
+	if not self.follow:get_luaentity() then
+		self.follow = nil
+		moves.stop(self)
+		return
+	end
+	local hispos = vector(self.follow:getpos())
+	if not hispos then
+		self.follow = nil
+		return
+	end
+	moves.walk(self, hispos, 3.0, self.on_reach_enemy)
+	if math.random() < 0.1 * dtime then
+		self.move:jump()
+	end
+end
+
 function npc.on_reach_enemy(self, position, distance)
 	local player = self.follow:is_player() and self.follow:get_player_name()
 	speak(self.object:getpos(), 8, string.format("[%s]: Got you %s!", self.info.name, get_name(self.follow)))
@@ -116,40 +163,8 @@ function npc.on_rightclick(self, clicker)
 end
 
 function npc.on_step(self, dtime)
-	self.object:setacceleration(G_VEC)
-	if self.sleep > 0 then
-		self.sleep = self.sleep - dtime
-		return
-	end
-	local mypos = vector(self.object:getpos())
-	if self.follow then
-		local hispos = vector(self.follow:getpos())
-		if not hispos then
-			self.follow = nil
-			return
-		end
-		moves.walk(self, hispos, 3.0, self.on_reach_enemy)
-	else
-		local objs = minetest.get_objects_inside_radius(mypos, 16)
-		local targets = {}
-		for _,obj in ipairs(objs) do
-			if obj ~= self.object then
-				table.insert(targets, obj)
-			end
-		end
-		local i = math.random(#targets)
-		self.follow = targets[i]
-		if self.follow then
-			local player = self.follow:is_player() and self.follow:get_player_name()
-			if player and player ~= "" then
-				minetest.chat_send_player(player, string.format("(%s): I see you }:->", self.info.name))
-			end
-		end
-	end
 	self.move:on_step(dtime)
-	if math.random() < 0.1 * dtime then
-		self.move:jump()
-	end
+	self:step(dtime)
 end
 
 custom_npc.npc = npc
