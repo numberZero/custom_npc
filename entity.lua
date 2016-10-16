@@ -9,9 +9,9 @@ local npc_entity = {
 		weight = 10,
 		collisionbox = {-0.45,-0.90,-0.45, 0.45,0.90,0.45},
 		visual = "mesh",
-		mesh = "3d_armor_18.b3d",
+		mesh = "3d_armor.b3d",
 		textures = {
-			"multiskin_18.png",
+			"multiskin.png",
 			"multiskin_trans.png",
 			"multiskin_trans.png",
 			"multiskin_trans.png",
