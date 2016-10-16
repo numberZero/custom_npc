@@ -119,6 +119,7 @@ function npc.find_target(self)
 		if player and player ~= "" then
 			minetest.chat_send_player(player, string.format("(%s): I see you }:->", self.info.name))
 		end
+		minetest.log("action", string.format("[custom_npc] NPC %s found new target", self.info.name));
 	end
 	return target
 end
@@ -132,13 +133,15 @@ function npc.step(self, dtime)
 		self.follow = self:find_target()
 		return
 	end
-	if not self.follow:get_luaentity() then
+	if not self.follow:is_player() and not self.follow:get_luaentity() then
+		minetest.log("action", string.format("[custom_npc] NPC %s lost the target", self.info.name));
 		self.follow = nil
 		moves.stop(self)
 		return
 	end
 	local hispos = vector(self.follow:getpos())
 	if not hispos then
+		minetest.log("warning", string.format("[custom_npc] NPC %s's target was incorrect, resetting", self.info.name));
 		self.follow = nil
 		return
 	end
